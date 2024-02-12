@@ -1,15 +1,15 @@
 //High=dark Low=light
 // CHANGE THESE TO MATCH YOUR WIRING, THEN DELETE THE PREVIOUS "#error" LINE
-const int LEYE = 2;
-const int REYE = 13;
-bool state_left = 0; // true if high, false if low
-bool state_right = 0;
-const int leftSwitch = 3;
-const int rightSwitch = 12;
-const int LmotorLogic1 = 4;
-const int LmotorLogic2 = 7;
-const int RmotorLogic1 = 5;
-const int RmotorLogic2 = 11;
+const int LEYE = 2;//The Pin that reads digitaal signals from Left eye IR sensor(1)
+const int REYE = 13;//(2)
+bool state_left = 0; // true if high, false if low Store state of corrsponding eye sensor(1)
+bool state_right = 0;//(2)
+const int leftSwitch = 3;//PWM pins to modualte the motor speed (1)
+const int rightSwitch = 12;//(2)
+const int LmotorLogic1 = 4;//These pins send logic signals to H-Bridge to determine direction of rotation(1)
+const int LmotorLogic2 = 7;//(2)
+const int RmotorLogic1 = 5;//(3)
+const int RmotorLogic2 = 11;//(4)
 void setup() {
   Serial.begin(9600);
   pinMode(LEYE,INPUT);
