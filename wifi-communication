@@ -1,11 +1,8 @@
 /*
   WiFi UDP Send and Receive String
-
  This sketch wait an UDP packet on localPort using a WiFi shield.
-
  When a packet is received an Acknowledge packet is sent to the client on port remotePort
-
- */
+*/
 
 #include <SPI.h>
 #include <WiFi.h>
@@ -23,14 +20,8 @@ char  ReplyBuffer[] = "acknowledged";       // a string to send back
 WiFiUDP Udp;
 
 void setup() {
-
-  //Initialize serial and wait for port to open:
-
-  Serial.begin(9600);
-
-  // check for the presence of the module:
-
-  if (WiFi.status() == WL_NO_MODULE) {
+  Serial.begin(9600); //Initialize serial and wait for port to open:
+  if (WiFi.status() == WL_NO_MODULE) { // check for the presence of the module:
     Serial.println("WiFi module not connected");
     while (true); // don't continue:
   }
