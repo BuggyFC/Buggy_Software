@@ -1,6 +1,7 @@
 /*  Not tested on main buggy yet. Works on fresh arduino.
     Combines code from Further_refinement.ino 
     and wifi-communication.ino .
+    Connect laptop to the AP created by the Arduino before running the Processing GUI.
 */
 #include <WiFiS3.h>
 #include "Arduino_LED_Matrix.h"
