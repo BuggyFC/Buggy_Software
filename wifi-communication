@@ -1,4 +1,31 @@
 /*
+THIS WORKS WITH PROCESSING, HOWEVER DOES NOT INCLUDE ANY OF THE CODE FOR THE BUGGY
+GUI SENDS 'S' FOR STOP, 'W' FOR START.
+CHANGING SSID AND PASSWORD FOR SOME REASON MAKES IT STOP WORKING
+*/
+
+#include <WiFiS3.h>
+char ssid[] = "my_wifi_network";
+char pass[] = "2E10Project";
+WiFiServer server(5200);
+void setup() {
+ Serial.begin(9600);
+ WiFi.beginAP(ssid, pass);
+ IPAddress ip = WiFi.localIP();
+ Serial.print("IP Address:");
+ Serial.println(ip);
+ server.begin();
+}
+void loop() {
+ WiFiClient client = server.available();
+ if (client.connected()) 
+  client.write("Hello Client");
+  char c = client.read();
+  if (c != -1)
+  Serial.println(c);
+  delay(1000);
+ }
+/*
   WiFi UDP Send and Receive String
  This sketch wait an UDP packet on localPort using a WiFi shield.
  When a packet is received an Acknowledge packet is sent to the client on port remotePort
