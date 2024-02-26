@@ -113,11 +113,10 @@ void loop() {
         analogWrite(rightSwitch,200);
     }
     distance();
-    Serial.println(travDistance);
     if((travDistance - pTravDistance) >= 10){
       pTravDistance = travDistance;
       client.write('+');
-      //Serial.println("HAHA");
+      
     }
   }
   else{ // STOP BUTTON WAS PRESSED
@@ -150,7 +149,7 @@ void checkClient(){ // connects client and reads from client
   }
 }
 
-void distance(){
+void distance(){//
   avgCount = 0.5 * (lCount + rCount);
   travDistance = (avgCount / 8.0) * pi * 6;
 }
