@@ -27,7 +27,7 @@ const int LmotorLogic1 = 4;//These pins send logic signals to H-Bridge to determ
 const int LmotorLogic2 = 7;//(2)
 const int RmotorLogic1 = 5;//(3)
 const int RmotorLogic2 = 10;//(4)
-bool trackColour ;//1=Black 0=White 
+bool trackColour ;//1 = Black 0 = White 
 const int usTrig = 12;
 const int usEcho = 6;
 int objDistance = 0;
@@ -36,15 +36,15 @@ unsigned long startTime = 0;
 unsigned long elapsedTime = 0;
 bool stop = false;//true = stop false = go
 bool speed = true;//true = full false = half
-bool override = true;
-bool sameObject = false;
-const int lWheel = 2;
-const int rWheel = 3;
-volatile int lCount = 0;
-volatile int rCount = 0;
-float avgCount = 0.0;
-float pTravDistance = 0.0;
-float travDistance = 0.0;
+bool override = true;//Override is used to determine void loop will be utilised or not
+bool sameObject = false;//Used to determine whether there is a new obstruction or not
+const int lWheel = 2;//Left wheel encoder pin
+const int rWheel = 3;//Right wheel encoder pin
+volatile int lCount = 0;//Counts number of rotations of left wheel
+volatile int rCount = 0;//Counts number of rotations of right wheel
+float avgCount = 0.0;//Mean of two rotation counts
+float pTravDistance = 0.0;//Used to calculate difference in ditsance travelled
+float travDistance = 0.0;//Used to find total distance travelled
 
 void setup() {
   Serial.begin(9600);
@@ -102,20 +102,20 @@ void loop() {
     updateState();
     if(stop == false){
       state_left=digitalRead(LEYE);
-      if ( state_left == LOW) 
+      if ( state_left == LOW) //Poll Left sensor to determine to whether to turn or not
         fwdLeft();
       else
         analogWrite(leftSwitch,200);
       state_right = digitalRead(REYE);
-      if ( state_right == LOW)
+      if ( state_right == LOW) //Poll Right sensor to determine to whether to turn or not
         fwdRight();
       else
         analogWrite(rightSwitch,200);
     }
-    distance();
-    if((travDistance - pTravDistance) >= 10){
+    distance();//calculate distance every loop
+    if((travDistance - pTravDistance) >= 10){//Code to update GUI
       pTravDistance = travDistance;
-      client.write('+');
+      client.write('+');//GUI will update distance travelled by .1m
       
     }
   }
@@ -149,54 +149,54 @@ void checkClient(){ // connects client and reads from client
   }
 }
 
-void distance(){//
+void distance(){//calculate distance using average count of both wheels
   avgCount = 0.5 * (lCount + rCount);
-  travDistance = (avgCount / 8.0) * pi * 6;
+  travDistance = (avgCount / 8.0) * pi * 6;//Iteratively Update distance travelled
 }
 
-void fwdDrive(){
+void fwdDrive(){//Function to drive forward
   digitalWrite(LmotorLogic1,HIGH);
   digitalWrite(LmotorLogic2,LOW);
   digitalWrite(RmotorLogic1,LOW);
   digitalWrite(RmotorLogic2,HIGH);
 }
 
-void Reverse(){
+void reverse(){//Function to reverse
   digitalWrite(LmotorLogic1,LOW);
   digitalWrite(LmotorLogic2,HIGH);
   digitalWrite(RmotorLogic1,HIGH);
   digitalWrite(RmotorLogic2,LOW);
 }
 
-void halfSpeed(){
+void halfSpeed(){//Function to drive at half speed
   analogWrite(leftSwitch,255.0/2.0);
   analogWrite(rightSwitch,255.0/2.0);
 }
-void Stop(){
+void Stop(){//Function to stop using PWM
   analogWrite(leftSwitch,0);
   analogWrite(rightSwitch,0);
 }
 
-void fwdLeft(){
+void fwdLeft(){//Function to turn left
   analogWrite(leftSwitch,0);
   analogWrite(rightSwitch,255);
 }
 
-void fwdRight(){
+void fwdRight(){//Funtion to turn right
   analogWrite(leftSwitch,255);
   analogWrite(rightSwitch,0);
 }
-void fullSpeed(){
+void fullSpeed(){//Funtion to make buggy drive @ full speed
   analogWrite(leftSwitch,255);
   analogWrite(rightSwitch,255);
 }
 
-void updateState(){
+void updateState(){//Function to update IR sensors
   state_left = digitalRead(LEYE);
   state_right = digitalRead(REYE);
 }
 
-void checkObject(){
+void checkObject(){//Function to poll US sensor
   digitalWrite(usTrig,LOW);
   delayMicroseconds(2);
   digitalWrite(usTrig,HIGH);
