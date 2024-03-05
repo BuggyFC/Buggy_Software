@@ -1,6 +1,4 @@
-/*  COMBINES CODE FROM WED21FEB.INO AND WIFI-COMMUNICATION.INO
-    CURRENTLY CRASHES RANDOMLY
-****************************************************************************
+/****************************************************************************
 BRONZE CHALLENGE
   TRAVERSE TRACK TWICE USING IR SENSORS TO FOLLOW LINE :         C0MPLETE
   PAUSE FOR OBSTACLES USING US SENSOR :                          COMPLETE
@@ -14,65 +12,65 @@ WiFiServer server(5200); // creates server on port 5200
 WiFiClient client;      // creates client object for GUI 
 char ssid[] = "GroupZ2";
 char pass[] = "GroupZ2R2Z2";
-//High = dark Low = light
+//High=dark Low=light
 // CHANGE THESE TO MATCH YOUR WIRING, THEN DELETE THE PREVIOUS "#error" LINE
 const float pi = 3.1415;
-const int l_eye = 0;//The Pin that reads digital signals from Left eye IR sensor(1)
-const int r_eye = 13;//(2)
+const int LEYE = 0; //The Pin that reads digital signals from Left eye IR sensor(1)
+const int REYE = 13; //(2)
 bool state_left = 0; // true if high, false if low Store state of corrsponding eye sensor(1)
-bool state_right = 0;//(2)
-const int left_switch = 9;//PWM pins to modulate the motor speed (1)
-const int right_switch = 11;//(2)
-const int l_motor_logic1 = 4;//These pins send logic signals to H-Bridge to determine direction of rotation(1)
-const int l_motor_logic2 = 7;//(2)
-const int r_motor_logic1 = 5;//(3)
-const int r_motor_logic2 = 10;//(4)
-bool track_colour ;//1 = Black 0 = White 
-const int us_trig = 12;
-const int us_echo = 6;
-int obj_dist = 0;
+bool state_right = 0; //(2)
+const int leftSwitch = 9; //PWM pins to modulate the motor speed (1)
+const int rightSwitch = 11; //(2)
+const int LmotorLogic1 = 4; //These pins send logic signals to H-Bridge to determine direction of rotation(1)
+const int LmotorLogic2 = 7; //(2)
+const int RmotorLogic1 = 5; //(3)
+const int RmotorLogic2 = 10; //(4)
+bool trackColour ; //1 = Black 0 = White 
+const int usTrig = 12;
+const int usEcho = 6;
+int objDistance = 0;
 long duration = 0;
-unsigned long start_time = 0;
-unsigned long elapsed_time = 0;
-bool stop = false;//true = stop false = go
-bool speed = true;//true = full false = half
-bool override = true;//Override is used to determine void loop will be utilised or not
-bool same_object = false;//Used to determine whether there is a new obstruction or not
-const int l_wheel = 2;//Left wheel encoder pin
-const int r_wheel = 3;//Right wheel encoder pin
-volatile int l_count = 0;//Counts number of rotations of left wheel
-volatile int r_count = 0;//Counts number of rotations of right wheel
-float avg_count = 0.0;//Mean of two rotation counts
-float prev_trav_dist = 0.0;//Used to calculate difference in ditsance travelled
-float tot_trav_dist = 0.0;//Used to find total distance travelled
+unsigned long startTime = 0;
+unsigned long elapsedTime = 0;
+bool stop = false; //true = stop false = go 
+bool speed = true; //true = full false = half
+bool override = true; //Override is used to determine void loop will be utilised or not
+bool sameObject = false; //Used to determine whether there is a new obstruction or not
+const int lWheel = 2; //Left wheel encoder pin
+const int rWheel = 3; //Right wheel encoder pin
+volatile int lCount = 0; //Counts number of rotations of left wheel
+volatile int rCount = 0; //Counts number of rotations of right wheel
+float avgCount = 0.0; //Mean of two rotation counts
+float pTravDistance = 0.0; //Used to calculate difference in ditsance travelled
+float travDistance = 0.0; //Used to find total distance travelled
 
 void setup() {
   Serial.begin(9600);
   startWiFi();
-  pinMode(l_eye,INPUT);
-  pinMode(r_eye,INPUT); 
-  pinMode(left_switch,OUTPUT);
-  pinMode(right_switch,OUTPUT);
-  pinMode(l_motor_logic1,OUTPUT);
-  pinMode(l_motor_logic2,OUTPUT);
-  pinMode(r_motor_logic1,OUTPUT);
-  pinMode(r_motor_logic2,OUTPUT);
-  pinMode(us_trig,OUTPUT);
-  pinMode(us_echo,INPUT);
-  start_time = millis(); 
+  pinMode(LEYE,INPUT);
+  pinMode(REYE,INPUT); 
+  pinMode(leftSwitch,OUTPUT);
+  pinMode(rightSwitch,OUTPUT);
+  pinMode(LmotorLogic1,OUTPUT);
+  pinMode(LmotorLogic2,OUTPUT);
+  pinMode(RmotorLogic1,OUTPUT);
+  pinMode(RmotorLogic2,OUTPUT);
+  pinMode(usTrig,OUTPUT);
+  pinMode(usEcho,INPUT);
+  pinMode(lWheel,INPUT_PULLUP);
+  pinMode(rWheel,INPUT_PULLUP);
+  attachInterrupt( digitalPinToInterrupt(lWheel), lUpdate, FALLING);
+  attachInterrupt( digitalPinToInterrupt(rWheel), rUpdate, FALLING);
+  startTime = millis(); 
   fwdDrive();
-  pinMode(l_wheel,INPUT_PULLUP);
-  pinMode(r_wheel,INPUT_PULLUP);
-  attachInterrupt( digitalPinToInterrupt(l_wheel), lUpdate, FALLING);
-  attachInterrupt( digitalPinToInterrupt(r_wheel), rUpdate, FALLING);
 }
 
 void lUpdate(){
-  l_count = l_count + 1;
+  lCount = lCount + 1;
 }
 
 void rUpdate(){
-  r_count = r_count + 1;
+  rCount = rCount + 1;
 }
 
 void loop() {
@@ -80,20 +78,20 @@ void loop() {
   fwdDrive();
   if (override == false){ // START BUTTON WAS PRESSED
     unsigned int currTime=millis(); 
-    elapsed_time = currTime - start_time;
-    if(elapsed_time >= 500){ // code for polling US sensor every 500ms
-        start_time = currTime;
+    elapsedTime = currTime - startTime;
+    if(elapsedTime >= 500){ // code for polling US sensor every 500ms
+        startTime = currTime;
         checkObject();
-        if(obj_dist<15){
-          if (same_object == false){ 
+        if(objDistance<15){
+          if (sameObject == false){ 
             client.write('o'); // GUI will display "Object Spotted!"
-            same_object = true;
+            sameObject = true;
           }
           Stop();
           stop = true;
         }
         else{ 
-          same_object = false;
+          sameObject = false;
           client.write('z'); // GUI will stop displaying "Object Spotted!"
           speed = true;
           stop = false;
@@ -101,26 +99,28 @@ void loop() {
     }
     updateState();
     if(stop == false){
-      state_left=digitalRead(l_eye);
-      if ( state_left == LOW) //Poll Left sensor to determine to whether to turn or not
+      state_left=digitalRead(LEYE);
+      if ( state_left == LOW){ //Poll Left sensor to determine to whether to turn or not
         fwdLeft();
+        client.write('l');
+      }
       else
-        analogWrite(left_switch,200);
-      state_right = digitalRead(r_eye);
-      if ( state_right == LOW) //Poll Right sensor to determine to whether to turn or not
+        analogWrite(leftSwitch,200);
+      state_right = digitalRead(REYE);
+      if ( state_right == LOW){ //Poll Right sensor to determine to whether to turn or not
         fwdRight();
+        client.write('r');
+      }
       else
-        analogWrite(right_switch,200);
+        analogWrite(rightSwitch,200);
     }
     distance();//calculate distance every loop
-    if((tot_trav_dist - prev_trav_dist) >= 10){//Code to update GUI
-      prev_trav_dist = tot_trav_dist;
+    if((travDistance - pTravDistance) >= 10){ //Code to update GUI distance
+      pTravDistance = travDistance;
       client.write('+');//GUI will update distance travelled by .1m
-      
     }
   }
   else{ // STOP BUTTON WAS PRESSED
-
   }
 }
 
@@ -140,7 +140,7 @@ void checkClient(){ // connects client and reads from client
         override = false;
         fwdDrive();
         fullSpeed();
-        start_time=millis(); 
+        startTime=millis(); 
     }
     if (c == 's'){ // stop was presssed
       override = true;
@@ -149,59 +149,59 @@ void checkClient(){ // connects client and reads from client
   }
 }
 
-void distance(){//calculate distance using average count of both wheels
-  avg_count = 0.5 * (l_count + r_count);
-  tot_trav_dist = (avg_count / 8.0) * pi * 6;//Iteratively Update distance travelled
+void distance(){ //calculate distance using average count of both wheels
+  avgCount = 0.5 * (lCount + rCount);
+  travDistance = (avgCount / 8.0) * pi * 6;//Iteratively Update distance travelled
+}
+  
+void fwdDrive(){ //Function to drive forward
+  digitalWrite(LmotorLogic1,HIGH);
+  digitalWrite(LmotorLogic2,LOW);
+  digitalWrite(RmotorLogic1,LOW);
+  digitalWrite(RmotorLogic2,HIGH);
 }
 
-void fwdDrive(){//Function to drive forward
-  digitalWrite(l_motor_logic1,HIGH);
-  digitalWrite(l_motor_logic2,LOW);
-  digitalWrite(r_motor_logic1,LOW);
-  digitalWrite(r_motor_logic2,HIGH);
+void reverse(){ //Function to reverse
+  digitalWrite(LmotorLogic1,LOW);
+  digitalWrite(LmotorLogic2,HIGH);
+  digitalWrite(RmotorLogic1,HIGH);
+  digitalWrite(RmotorLogic2,LOW);
 }
 
-void reverse(){//Function to reverse
-  digitalWrite(l_motor_logic1,LOW);
-  digitalWrite(l_motor_logic2,HIGH);
-  digitalWrite(r_motor_logic1,HIGH);
-  digitalWrite(r_motor_logic2,LOW);
+void halfSpeed(){ //Function to drive at half speed
+  analogWrite(leftSwitch,255.0/2.0);
+  analogWrite(rightSwitch,255.0/2.0);
+}
+void Stop(){ //Function to stop using PWM
+  analogWrite(leftSwitch,0);
+  analogWrite(rightSwitch,0);
 }
 
-void halfSpeed(){//Function to drive at half speed
-  analogWrite(left_switch,255.0/2.0);
-  analogWrite(right_switch,255.0/2.0);
-}
-void Stop(){//Function to stop using PWM
-  analogWrite(left_switch,0);
-  analogWrite(right_switch,0);
+void fwdLeft(){ //Function to turn left
+  analogWrite(leftSwitch,0);
+  analogWrite(rightSwitch,255);
 }
 
-void fwdLeft(){//Function to turn left
-  analogWrite(left_switch,0);
-  analogWrite(right_switch,255);
+void fwdRight(){ //Funtion to turn right
+  analogWrite(leftSwitch,255);
+  analogWrite(rightSwitch,0);
+}
+void fullSpeed(){ //Funtion to make buggy drive @ full speed
+  analogWrite(leftSwitch,255);
+  analogWrite(rightSwitch,255);
 }
 
-void fwdRight(){//Funtion to turn right
-  analogWrite(left_switch,255);
-  analogWrite(right_switch,0);
-}
-void fullSpeed(){//Funtion to make buggy drive @ full speed
-  analogWrite(left_switch,255);
-  analogWrite(right_switch,255);
+void updateState(){ //Function to update IR sensors
+  state_left = digitalRead(LEYE);
+  state_right = digitalRead(REYE);
 }
 
-void updateState(){//Function to update IR sensors
-  state_left = digitalRead(l_eye);
-  state_right = digitalRead(r_eye);
-}
-
-void checkObject(){//Function to poll US sensor
-  digitalWrite(us_trig,LOW);
+void checkObject(){ //Function to poll US sensor
+  digitalWrite(usTrig,LOW);
   delayMicroseconds(2);
-  digitalWrite(us_trig,HIGH);
+  digitalWrite(usTrig,HIGH);
   delayMicroseconds(10);
-  digitalWrite(us_trig,LOW);
-  duration=pulseIn(us_echo,HIGH);
-  obj_dist=duration/58;
+  digitalWrite(usTrig,LOW);
+  duration=pulseIn(usEcho,HIGH);
+  objDistance=duration/58;
 }
