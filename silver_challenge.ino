@@ -1,12 +1,7 @@
 /****************************************************************************
 BRONZE CHALLENGE                                                     COMPLETE
-SILVER CHALLENGE
-  ENTER SPEED IN M/S INTO GUI AND HAVE BUGGY GO AT THAT SPEED        COMPLETE
-  REPORT DISTANCE OF OBJECT TO GUI                                   COMPLETE
-  REPORT CURRENT MODE OF CONTROL TO GUI                              COMPLETE
-  REPORT REFERENCE SPEED TO GUI IN M/S                               COMPLETE
-  REPORT BUGGY SPEED TO GUI                                          COMPLETE
-  KEEP CONSTANT 15CM GAP FROM OBJECT USING PID                   NOT COMPLETE
+SILVER CHALLENGE                                                     COMPLETE
+  GOLD CHALLENGE
 *****************************************************************************/
 #include <WiFiS3.h>
 WiFiServer server(5200);  // creates server on port 5200
@@ -14,124 +9,119 @@ WiFiClient client;        // creates client object for GUI
 char ssid[] = "GroupZ2";
 char pass[] = "GroupZ2R2Z2";
 //High=dark Low=light
-// CHANGE THESE TO MATCH YOUR WIRING, THEN DELETE THE PREVIOUS "#error" LINE
 const float pi = 3.1415;
 const int LEYE = 0;           //The Pin that reads digital signals from Left eye IR sensor(1)
 const int REYE = 13;          //(2)
 bool state_left = 0;          // true if high, false if low Store state of corrsponding eye sensor(1)
 bool state_right = 0;         //(2)
-const int leftSwitch = 9;     //PWM pins to modulate the motor speed (1)
-const int rightSwitch = 11;   //(2)
-const int LmotorLogic1 = 4;   //These pins send logic signals to H-Bridge to determine direction of rotation(1)
-const int LmotorLogic2 = 7;   //(2)
-const int RmotorLogic1 = 5;   //(3)
-const int RmotorLogic2 = 10;  //(4)
-bool trackColour;             // 1 = Black 0 = White
-const int usTrig = 12;
-const int usEcho = 6;
-int objDistance = 0;
+const int left_switch = 9;     //PWM pins to modulate the motor speed (1)
+const int right_switch = 11;   //(2)
+const int left_motor_logic_1 = 4;   //These pins send logic signals to H-Bridge to determine direction of rotation(1)
+const int left_motor_logic_2 = 7;   //(2)
+const int right_motor_logic_1 = 5;   //(3)
+const int right_motor_logic_2 = 10;  //(4)
+const int us_trig = 12;
+const int us_echo = 6;
+int obj_distance = 0;
 long duration = 0;
-unsigned long startTime = 0;
-unsigned long startT = 0;
-unsigned long elapsedTime = 0;
-unsigned long elapsedT = 0;
+unsigned long start_time = 0;
+unsigned long t_start = 0;
+unsigned long elapsed_time = 0;
+unsigned long t_elapsed = 0;
 bool stop = false;          //true = stop false = go
 bool speed = true;          //true = full false = half
 bool override = true;       //Override is used to determine void loop will be utilised or not
-bool sameObject = false;    //Used to determine whether there is a new obstruction or not
-const int lWheel = 2;       //Left wheel encoder pin
-const int rWheel = 3;       //Right wheel encoder pin
-volatile int lCount = 0;    //Counts number of rotations of left wheel
-volatile int rCount = 0;    //Counts number of rotations of right wheel
-float avgCount = 0.0;       //Mean of two rotation counts
-float pTravDistance = 0.0;  //Used to calculate difference in ditsance travelled
-float travDistance = 0.0;   //Used to find total distance travelled
+bool same_object = false;    //Used to determine whether there is a new obstruction or not
+const int left_wheel = 2;       //Left wheel encoder pin
+const int right_wheel = 3;       //Right wheel encoder pin
+volatile int left_count = 0;    //Counts number of rotations of left wheel
+volatile int right_count = 0;    //Counts number of rotations of right wheel
+float avg_count = 0.0;       //Mean of two rotation counts
+float prev_trav_distance = 0.0;  //Used to calculate difference in ditsance travelled
+float trav_distance = 0.0;   //Used to find total distance travelled
 //PID constants
-double kpObj = 5;
-double kiObj = 0;
-double kdObj = -3;
-double kpSpd = -50;
-double kiSpd = 0;
-double kdSpd = 0;
-unsigned long currentTimePID, prevTimePID;
-double elapsedTimePID;
+double kp_obj = 5;
+double ki_obj = 0;
+double kd_obj = -3;
+double kp_spd = -50;
+double ki_spd = 0;
+double kd_spd = 10;
+unsigned long current_time_pid, prev_time_pid;
+double elapsed_time_pid;
 double error;
-double lastError;
-double input, output, setPoint;
-double cumError, rateError;
-int maxSpeed = 120;
-int minSpeed = 0;  // determine minimum driving speed of buggy
-int currentSpeed = 100;
-double referenceSpeed = 0;
-double measuredSpeed = 0.0;  // on board measured speed
-bool followMode = false;     // choose between buggy following object or buggy travelling at reference speed given from GUI
-float travDistSpd = 0.0;     // used to calculate speed
-float prevTravDistSpd = 0.0;
+double last_error;
+double input, output, set_point;
+double cum_error, rate_error;
+int max_speed = 200;
+int min_speed = 130;  // determine minimum driving speed of buggy
+int current_speed = 130;
+double reference_speed = 0.0;
+double measured_speed = 0.0;  // on board measured speed
+bool follow_mode = false;     // choose between buggy following object or buggy travelling at reference speed given from GUI
 
 void setup() {
-  setPoint = 15;
+  set_point = 15; // distance for reference object, 15cm
   Serial.begin(9600);
   startWiFi();
   pinMode(LEYE, INPUT);
   pinMode(REYE, INPUT);
-  pinMode(leftSwitch, OUTPUT);
-  pinMode(rightSwitch, OUTPUT);
-  pinMode(LmotorLogic1, OUTPUT);
-  pinMode(LmotorLogic2, OUTPUT);
-  pinMode(RmotorLogic1, OUTPUT);
-  pinMode(RmotorLogic2, OUTPUT);
-  pinMode(usTrig, OUTPUT);
-  pinMode(usEcho, INPUT);
-  pinMode(lWheel, INPUT_PULLUP);
-  pinMode(rWheel, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(lWheel), lUpdate, FALLING);
-  attachInterrupt(digitalPinToInterrupt(rWheel), rUpdate, FALLING);
-  startTime = millis();
-  startT = millis();
+  pinMode(left_switch, OUTPUT);
+  pinMode(right_switch, OUTPUT);
+  pinMode(left_motor_logic_1, OUTPUT);
+  pinMode(left_motor_logic_2, OUTPUT);
+  pinMode(right_motor_logic_1, OUTPUT);
+  pinMode(right_motor_logic_2, OUTPUT);
+  pinMode(us_trig, OUTPUT);
+  pinMode(us_echo, INPUT);
+  pinMode(left_wheel, INPUT_PULLUP);
+  pinMode(right_wheel, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(left_wheel), lUpdate, FALLING);
+  attachInterrupt(digitalPinToInterrupt(right_wheel), rUpdate, FALLING);
+  start_time = millis();
+  t_start = millis();
   fwdDrive();
 }
 void loop() {
   checkClient();
   if (override == false) {  // START BUTTON WAS PRESSED
-    unsigned int currTime = millis();
-    elapsedTime = currTime - startTime;
-    if (elapsedTime >= 500) {  // code for polling US sensor every 500ms
-      startTime = currTime;
+    unsigned int curr_time = millis();
+    elapsed_time = curr_time - start_time;
+    if (elapsed_time >= 300) {  // code for polling US sensor every 300ms
+      start_time = curr_time;
       checkObject();
       // code for calculating speed every 500ms
-      measuredSpeed = 10 * (travDistSpd - prevTravDistSpd) / elapsedTime;
-      prevTravDistSpd = travDistSpd;
-      if (followMode) {  // reference object mode
-        if (objDistance > 10) {
-          input = objDistance;
-          output = computePID(input, setPoint, kpObj, kiObj, kdObj);
-          currentSpeed -= output;
-          if (currentSpeed > maxSpeed)
-            currentSpeed = maxSpeed;
-          if (currentSpeed < minSpeed)
-            currentSpeed = minSpeed;
+      measured_speed = 10 * (trav_distance - prev_trav_distance) / elapsed_time;
+      prev_trav_distance = trav_distance;prev_trav_distance
+      prev_trav_distancee) {  // reference object mode
+        if (obj_distance > 10) {
+          input = obj_distance;
+          output = computePID(input, set_point, kp_obj, ki_obj, kd_obj);
+          current_speed -= output;
+          if (current_speed > max_speed)
+            current_speed = max_speed;
+          if (current_speed < min_speed)
+            current_speed = min_speed;
         }
       } else {  // reference speed mode
-        input = measuredSpeed;
-        output = computePID(input, referenceSpeed, kpSpd, kiSpd, kdSpd);
-        currentSpeed -= output;
-        if (currentSpeed > maxSpeed)
-          currentSpeed = maxSpeed;
-        if (currentSpeed < 0)
-          currentSpeed = 0;
+        input = measured_speed;
+        output = computePID(input, reference_speed, kp_spd, ki_spd, kd_spd);
+        current_speed -= output;
+        if (current_speed > max_speed)
+          current_speed = max_speed;
+        if (current_speed < 0)
+          current_speed = 0;
       }
       driveSpeed();
-      if (objDistance <= 10) {
-        if (sameObject == false) {
+      if (obj_distance <= 10) {
+        if (same_object == false) {
           client.write('o');  // GUI will display "Object Spotted!"
-          sameObject = true;
+          same_object = true;
         }
         Stop();
         stop = true;
       } else {
-        sameObject = false;
+        same_object = false;
         client.write('z');  // GUI will stop displaying "Object Spotted!"
-        // speed = true;
         driveSpeed();
         stop = false;
       }
@@ -142,47 +132,39 @@ void loop() {
       if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
         fwdLeft();
       } else
-        analogWrite(leftSwitch, currentSpeed);
+        analogWrite(left_switch, current_speed);
       state_right = digitalRead(REYE);
       if (state_right == LOW) {  //Poll Right sensor to determine to whether to turn or not
         fwdRight();
       } else
-        analogWrite(rightSwitch, currentSpeed);
+        analogWrite(right_switch, current_speed);
     }
     distance();  //calculate distance every loop
-    unsigned int currT = millis();
-    elapsedT = currT - startT;
-    if (elapsedT >= 1000) {  // code for sending data every 1 second
-      startT = currT;
-      sendData();
-    }
+    // Serial.println(trav_distance);
+
   } else {  // STOP BUTTON WAS PRESSED
-    measuredSpeed = 0;
+    measured_speed = 0;
   }
-//
-  // Serial.print("measured speed: ");
-  // Serial.println(measuredSpeed);
-  // Serial.print("reference speed: ");
-  // Serial.println(referenceSpeed);
-  // Serial.print ("travDistSpd : " );
-  // Serial.println(travDistSpd);
-  // Serial.print("prevDistSpd: ");
-  // Serial.println(prevTravDistSpd);
-  // Serial.println(currentSpeed);
+  unsigned int currT = millis();
+  t_elapsed = currT - t_start;
+  if (t_elapsed >= 1000) {  // code for sending data every 1 second
+    t_start = currT;
+    sendData();
+  }
 }
 double computePID(double inp, double sPoint, double kp, double ki, double kd) {
-  setPoint = sPoint;
-  currentTimePID = millis();                                //get current time
-  elapsedTimePID = (double)(currentTimePID - prevTimePID);  //compute time elapsed from previous computation
+  set_point = sPoint;
+  current_time_pid = millis();                                //get current time
+  elapsed_time_pid = (double)(current_time_pid - prev_time_pid);  //compute time elapsed from previous computation
 
-  error = setPoint - inp;                            // determine error
-  cumError += error * elapsedTimePID;                // compute integral
-  rateError = (error - lastError) / elapsedTimePID;  // compute derivative
+  error = set_point - inp;                            // determine error
+  cum_error += error * elapsed_time_pid;                // compute integral
+  rate_error = (error - last_error) / elapsed_time_pid;  // compute derivative
 
-  double out = kp * error + ki * cumError + kd * rateError;  //PID output
+  double out = kp * error + ki * cum_error + kd * rate_error;  //PID output
 
-  lastError = error;             //remember current error
-  prevTimePID = currentTimePID;  //remember current time
+  last_error = error;             //remember current error
+  prev_time_pid = current_time_pid;  //remember current time
 
   return out;  //have function return the PID output
 }
@@ -199,88 +181,88 @@ void checkClient() {  // connects client and reads from client
     char c = client.read();
     Serial.println(c);
     if (c == 'v') {
-      String speedStr = client.readStringUntil('v');
-      referenceSpeed = speedStr.toFloat();
-      // Serial.println("speedStr: " + speedStr);
-      // Serial.println("refSpeed: ");
-      // Serial.print(referenceSpeed);
+      String speed_str = client.readStringUntil('v');
+      reference_speed = speed_str.toFloat();
     }
     if (c == '1') {  // start was pressed
       override = false;
       driveSpeed();
-      startTime = millis();
+      start_time = millis();
     }
     if (c == '0') {  // stop was presssed
       override = true;
       Stop();
     }
     if (c == 'f') {  // "Reference Object" was selected
-      followMode = true;
-      currentSpeed = 200;
+      follow_mode = true;
+      current_speed = 130;
     }
     if (c == 'r') {  // "Reference Speed" was selected
-      followMode = false;
+      follow_mode = false;
+    }
+    if (c == 'l') {
+      trav_distance = 0;
     }
   }
 }
 void sendData() {
-  String distStr = String(objDistance) + "d";  // code for sending object distance to GUI
+  String dist_str = String(obj_distance) + "d";  // code for sending object distance to GUI
   client.write('d');
-  client.write(distStr.c_str());
-  String speedStr = String(measuredSpeed) + "v";  // code for sending speed to GUI
+  client.write(dist_str.c_str());
+  String speed_str = String(measured_speed) + "v";  // code for sending speed to GUI
   client.write('v');
-  client.write(speedStr.c_str());
-  String travStr = String(travDistance) + "t";  // code for sending distance travelled to GUI
+  client.write(speed_str.c_str());
+  String trav_str = String(trav_distance) + "t";  // code for sending distance travelled to GUI
   client.write('t');
-  client.write(travStr.c_str());
+  client.write(trav_str.c_str());
 }
 void distance() {  //calculate distance using average count of both wheels
-  avgCount = 0.5 * (lCount + rCount);
-  travDistance = (avgCount / 8.0) * pi * 6;  //Iteratively Update distance travelled
-  travDistSpd = travDistance;
+  avg_count = 0.5 * (left_count + right_count);
+  trav_distance = (avg_count / 8.0) * pi * 6;  //Iteratively Update distance travelled
 }
 void fwdDrive() {  //Function to drive forward
-  digitalWrite(LmotorLogic1, HIGH);
-  digitalWrite(LmotorLogic2, LOW);
-  digitalWrite(RmotorLogic1, LOW);
-  digitalWrite(RmotorLogic2, HIGH);
+  digitalWrite(left_motor_logic_1, HIGH);
+  digitalWrite(left_motor_logic_2, LOW);
+  digitalWrite(right_motor_logic_1, LOW);
+  digitalWrite(right_motor_logic_2, HIGH);
 }
 void Stop() {  //Function to stop using PWM
-  analogWrite(leftSwitch, 0);
-  analogWrite(rightSwitch, 0);
+  current_speed = 110;
+  analogWrite(left_switch, current_speed);
+  analogWrite(right_switch, current_speed);
 }
 void fwdLeft() {  //Function to turn left
-  analogWrite(leftSwitch, currentSpeed * 0.3);
-  analogWrite(rightSwitch, currentSpeed * 1.3);
+  analogWrite(left_switch, current_speed * 0.3);
+  analogWrite(right_switch, current_speed * 1.3);
 }
 void fwdRight() {  //Funtion to turn right
-  analogWrite(leftSwitch, currentSpeed * 1.3);
-  analogWrite(rightSwitch, currentSpeed * 0.3);
+  analogWrite(left_switch, current_speed * 1.3);
+  analogWrite(right_switch, current_speed * 0.3);
 }
 void fullSpeed() {  //Funtion to make buggy drive @ full speed
-  analogWrite(leftSwitch, 255);
-  analogWrite(rightSwitch, 255);
+  analogWrite(left_switch, 255);
+  analogWrite(right_switch, 255);
 }
 void driveSpeed() {
-  analogWrite(leftSwitch, currentSpeed);
-  analogWrite(rightSwitch, currentSpeed);
+  analogWrite(left_switch, current_speed);
+  analogWrite(right_switch, current_speed);
 }
 void updateState() {  //Function to update IR sensors
   state_left = digitalRead(LEYE);
   state_right = digitalRead(REYE);
 }
 void checkObject() {  //Function to poll US sensor
-  digitalWrite(usTrig, LOW);
+  digitalWrite(us_trig, LOW);
   delayMicroseconds(2);
-  digitalWrite(usTrig, HIGH);
+  digitalWrite(us_trig, HIGH);
   delayMicroseconds(10);
-  digitalWrite(usTrig, LOW);
-  duration = pulseIn(usEcho, HIGH);
-  objDistance = duration / 58;
+  digitalWrite(us_trig, LOW);
+  duration = pulseIn(us_echo, HIGH);
+  obj_distance = duration / 58;
 }
 void lUpdate() {
-  lCount = lCount + 1;
+  left_count = left_count + 1;
 }
 void rUpdate() {
-  rCount = rCount + 1;
+  right_count = right_count + 1;
 }
