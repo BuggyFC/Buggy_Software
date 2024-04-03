@@ -72,6 +72,7 @@ bool tag1 = false;
 bool tag2 = false;
 bool tag3 = false;
 bool tag4 = false;
+String log_string;
 
 void setup() {
   set_point = 15;  // distance for reference object, 15cm
@@ -322,15 +323,27 @@ void checkCam() {
       switch (result.ID) {
         case 1:  // slow speed
           tOnePro();
+          log_string = String("Going Slow" + 'y');
+          client.write('z');
+          client.write(log_string.c_str());
           break;
         case 2:  // max speed
           tTwoPro();
+          log_string = String("Going Fast" + 'y');
+          client.write('z');
+          client.write(log_string.c_str());
           break;
         case 3:  // right turn
-          tThreePro();
+          tThreePro(); 
+          log_string = String("Right Turn Incoming!" + 'y');
+          client.write('z');
+          client.write(log_string.c_str());
           break;
         case 4:  // left turn
           tFourPro();
+          log_string = String("Left Turn Incoming!" + 'y');
+          client.write('z');
+          client.write(log_string.c_str());
           break;
           // code block
       }
