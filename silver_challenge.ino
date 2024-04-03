@@ -3,21 +3,31 @@ BRONZE CHALLENGE                                                     COMPLETE
 SILVER CHALLENGE                                                     COMPLETE
   GOLD CHALLENGE
 *****************************************************************************/
+#include "HUSKYLENS.h"
+#include "SoftwareSerial.h"
+// Global variable containing the huskylens control object.
+// This gets initialised in setup() so that it communicates over I2C
+HUSKYLENS huskylens;
+// THis program uses I2C for communications, so
+// connect HuskyLens green line to SDA and blue line to SCL
+// (and supply power, obviously)
+
 #include <WiFiS3.h>
 WiFiServer server(5200);  // creates server on port 5200
 WiFiClient client;        // creates client object for GUI
 char ssid[] = "GroupZ2";
 char pass[] = "GroupZ2R2Z2";
 //High=dark Low=light
+
 const float pi = 3.1415;
-const int LEYE = 0;           //The Pin that reads digital signals from Left eye IR sensor(1)
-const int REYE = 13;          //(2)
-bool state_left = 0;          // true if high, false if low Store state of corrsponding eye sensor(1)
-bool state_right = 0;         //(2)
-const int left_switch = 9;     //PWM pins to modulate the motor speed (1)
-const int right_switch = 11;   //(2)
-const int left_motor_logic_1 = 4;   //These pins send logic signals to H-Bridge to determine direction of rotation(1)
-const int left_motor_logic_2 = 7;   //(2)
+const int LEYE = 0;                  //The Pin that reads digital signals from Left eye IR sensor(1)
+const int REYE = 13;                 //(2)
+bool state_left = 0;                 // true if high, false if low Store state of corrsponding eye sensor(1)
+bool state_right = 0;                //(2)
+const int left_switch = 9;           //PWM pins to modulate the motor speed (1)
+const int right_switch = 11;         //(2)
+const int left_motor_logic_1 = 4;    //These pins send logic signals to H-Bridge to determine direction of rotation(1)
+const int left_motor_logic_2 = 7;    //(2)
 const int right_motor_logic_1 = 5;   //(3)
 const int right_motor_logic_2 = 10;  //(4)
 const int us_trig = 12;
@@ -28,17 +38,17 @@ unsigned long start_time = 0;
 unsigned long t_start = 0;
 unsigned long elapsed_time = 0;
 unsigned long t_elapsed = 0;
-bool stop = false;          //true = stop false = go
-bool speed = true;          //true = full false = half
-bool override = true;       //Override is used to determine void loop will be utilised or not
-bool same_object = false;    //Used to determine whether there is a new obstruction or not
-const int left_wheel = 2;       //Left wheel encoder pin
+bool stop = false;               //true = stop false = go
+bool speed = true;               //true = full false = half
+bool override = false;           //Override is used to determine void loop will be utilised or not
+bool same_object = false;        //Used to determine whether there is a new obstruction or not
+const int left_wheel = 2;        //Left wheel encoder pin
 const int right_wheel = 3;       //Right wheel encoder pin
-volatile int left_count = 0;    //Counts number of rotations of left wheel
+volatile int left_count = 0;     //Counts number of rotations of left wheel
 volatile int right_count = 0;    //Counts number of rotations of right wheel
-float avg_count = 0.0;       //Mean of two rotation counts
+float avg_count = 0.0;           //Mean of two rotation counts
 float prev_trav_distance = 0.0;  //Used to calculate difference in ditsance travelled
-float trav_distance = 0.0;   //Used to find total distance travelled
+float trav_distance = 0.0;       //Used to find total distance travelled
 //PID constants
 double kp_obj = 5;
 double ki_obj = 0;
@@ -55,12 +65,16 @@ double cum_error, rate_error;
 int max_speed = 200;
 int min_speed = 130;  // determine minimum driving speed of buggy
 int current_speed = 130;
-double reference_speed = 0.0;
+double reference_speed = 10;
 double measured_speed = 0.0;  // on board measured speed
-bool follow_mode = false;     // choose between buggy following object or buggy travelling at reference speed given from GUI
+bool follow_mode = true;      // choose between buggy following object or buggy travelling at reference speed given from GUI
+bool tag1 = false;
+bool tag2 = false;
+bool tag3 = false;
+bool tag4 = false;
 
 void setup() {
-  set_point = 15; // distance for reference object, 15cm
+  set_point = 15;  // distance for reference object, 15cm
   Serial.begin(9600);
   startWiFi();
   pinMode(LEYE, INPUT);
@@ -80,6 +94,16 @@ void setup() {
   start_time = millis();
   t_start = millis();
   fwdDrive();
+  Wire.begin();
+  // Connect I2C bus and huskylens.
+  // Returns false if there is a problem, so I check for that
+  // and print errors until things are working.
+  while (!huskylens.begin(Wire)) {
+    Serial.println(F("Huskylens begin failed!"));
+    Serial.println(F("Check Huskylens protocol is set to I2C (General > Settings > Protocol Type > I2C"));
+    Serial.println(F("And confirm the physical connection."));
+    delay(1000);  // Wait a second before trying to initialise again.
+  }
 }
 void loop() {
   checkClient();
@@ -91,8 +115,8 @@ void loop() {
       checkObject();
       // code for calculating speed every 500ms
       measured_speed = 10 * (trav_distance - prev_trav_distance) / elapsed_time;
-      prev_trav_distance = trav_distance;prev_trav_distance
-      prev_trav_distancee) {  // reference object mode
+      prev_trav_distance = trav_distance;
+      if (follow_mode && !tag1 && !tag2) {  // reference object mode
         if (obj_distance > 10) {
           input = obj_distance;
           output = computePID(input, set_point, kp_obj, ki_obj, kd_obj);
@@ -108,10 +132,10 @@ void loop() {
         current_speed -= output;
         if (current_speed > max_speed)
           current_speed = max_speed;
-        if (current_speed < 0)
-          current_speed = 0;
+        if (current_speed < min_speed)
+          current_speed = min_speed;
       }
-      driveSpeed();
+      //driveSpeed();
       if (obj_distance <= 10) {
         if (same_object == false) {
           client.write('o');  // GUI will display "Object Spotted!"
@@ -126,6 +150,7 @@ void loop() {
         stop = false;
       }
     }
+
     updateState();
     if (stop == false) {
       state_left = digitalRead(LEYE);
@@ -140,9 +165,7 @@ void loop() {
         analogWrite(right_switch, current_speed);
     }
     distance();  //calculate distance every loop
-    // Serial.println(trav_distance);
-
-  } else {  // STOP BUTTON WAS PRESSED
+  } else {       // STOP BUTTON WAS PRESSED
     measured_speed = 0;
   }
   unsigned int currT = millis();
@@ -151,19 +174,20 @@ void loop() {
     t_start = currT;
     sendData();
   }
+  checkCam();
 }
 double computePID(double inp, double sPoint, double kp, double ki, double kd) {
   set_point = sPoint;
-  current_time_pid = millis();                                //get current time
+  current_time_pid = millis();                                    //get current time
   elapsed_time_pid = (double)(current_time_pid - prev_time_pid);  //compute time elapsed from previous computation
 
-  error = set_point - inp;                            // determine error
-  cum_error += error * elapsed_time_pid;                // compute integral
+  error = set_point - inp;                               // determine error
+  cum_error += error * elapsed_time_pid;                 // compute integral
   rate_error = (error - last_error) / elapsed_time_pid;  // compute derivative
 
   double out = kp * error + ki * cum_error + kd * rate_error;  //PID output
 
-  last_error = error;             //remember current error
+  last_error = error;                //remember current error
   prev_time_pid = current_time_pid;  //remember current time
 
   return out;  //have function return the PID output
@@ -228,8 +252,8 @@ void fwdDrive() {  //Function to drive forward
 }
 void Stop() {  //Function to stop using PWM
   current_speed = 110;
-  analogWrite(left_switch, current_speed);
-  analogWrite(right_switch, current_speed);
+  analogWrite(left_switch, 0);
+  analogWrite(right_switch, 0);
 }
 void fwdLeft() {  //Function to turn left
   analogWrite(left_switch, current_speed * 0.3);
@@ -240,8 +264,8 @@ void fwdRight() {  //Funtion to turn right
   analogWrite(right_switch, current_speed * 0.3);
 }
 void fullSpeed() {  //Funtion to make buggy drive @ full speed
-  analogWrite(left_switch, 255);
-  analogWrite(right_switch, 255);
+  analogWrite(left_switch, 200);
+  analogWrite(right_switch, 200);
 }
 void driveSpeed() {
   analogWrite(left_switch, current_speed);
@@ -265,4 +289,51 @@ void lUpdate() {
 }
 void rUpdate() {
   right_count = right_count + 1;
+}
+void tOnePro() {
+  current_speed = 170;
+  driveSpeed();
+  tag1 = true;
+}
+void tTwoPro() {
+  current_speed = 200;
+  driveSpeed();
+  tag2 = true;
+}
+void tThreePro() {
+  tag3 = true;
+}
+void tFourPro() {
+  tag4 = true;
+}
+void checkCam() {
+  // First, check that we have the huskylens connected...
+  if (!huskylens.request()) Serial.println("Fail to request data from HUSKYLENS, recheck the connection!");
+  // then check that it's been trained on something...
+  else if (!huskylens.isLearned()) Serial.println("Nothing learned, press learn button on HUSKYLENS to learn one!");
+  // Then check whether there are any blocks visible at this exact moment...
+  else if (!huskylens.available()) Serial.println("No block or arrow appears on the screen!");
+  else {
+    // OK, we have some blocks to process. available() will return the number of blocks to work through.
+    // fetch them using read(), one at a time, until there are none left. Each block gets given to
+    // my printResult() function to be printed out to the serial port.
+    if (huskylens.available()) {
+      HUSKYLENSResult result = huskylens.read();
+      switch (result.ID) {
+        case 1:  // slow speed
+          tOnePro();
+          break;
+        case 2:  // max speed
+          tTwoPro();
+          break;
+        case 3:  // right turn
+          tThreePro();
+          break;
+        case 4:  // left turn
+          tFourPro();
+          break;
+          // code block
+      }
+    }
+  }
 }
