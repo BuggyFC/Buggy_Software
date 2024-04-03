@@ -324,25 +324,25 @@ void checkCam() {
         case 1:  // slow speed
           tOnePro();
           log_string = String("Going Slow" + 'y');
-          client.write('z');
+          client.write('y');
           client.write(log_string.c_str());
           break;
         case 2:  // max speed
           tTwoPro();
           log_string = String("Going Fast" + 'y');
-          client.write('z');
+          client.write('y');
           client.write(log_string.c_str());
           break;
         case 3:  // right turn
           tThreePro(); 
           log_string = String("Right Turn Incoming!" + 'y');
-          client.write('z');
+          client.write('y');
           client.write(log_string.c_str());
           break;
         case 4:  // left turn
           tFourPro();
           log_string = String("Left Turn Incoming!" + 'y');
-          client.write('z');
+          client.write('y');
           client.write(log_string.c_str());
           break;
           // code block
