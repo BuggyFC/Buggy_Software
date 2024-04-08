@@ -195,6 +195,7 @@ void loop() {
     sendData();
   }
   checkCam();
+  }
 }
 double computePID(double inp, double sPoint, double kp, double ki, double kd) {
   set_point = sPoint;
