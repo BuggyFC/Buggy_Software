@@ -73,6 +73,12 @@ bool tag2 = false;
 bool tag3 = false;
 bool tag4 = false;
 String log_string;
+unsigned long prev_timeT3 = 0;
+unsigned long current_timeT3 = 0;
+unsigned long elapsed_timeT3 = 0;
+unsigned long prev_timeT4 = 0;
+unsigned long current_timeT4 = 0;
+unsigned long elapsed_timeT4 = 0;
 
 void setup() {
   set_point = 15;  // distance for reference object, 15cm
@@ -118,26 +124,26 @@ void loop() {
       measured_speed = 10 * (trav_distance - prev_trav_distance) / elapsed_time;
       prev_trav_distance = trav_distance;
       if (!tag1 && !tag2) {  // In order to prevent reference modes from activating at same time as speed tags
-      if (follow_mode) {  // reference object mode
-        if (obj_distance > 10) {
-          input = obj_distance;
-          output = computePID(input, set_point, kp_obj, ki_obj, kd_obj);
+        if (follow_mode) {   // reference object mode
+          if (obj_distance > 10) {
+            input = obj_distance;
+            output = computePID(input, set_point, kp_obj, ki_obj, kd_obj);
+            current_speed -= output;
+            if (current_speed > max_speed)
+              current_speed = max_speed;
+            if (current_speed < min_speed)
+              current_speed = min_speed;
+          }
+        } else {  // reference speed mode
+          input = measured_speed;
+          output = computePID(input, reference_speed, kp_spd, ki_spd, kd_spd);
           current_speed -= output;
           if (current_speed > max_speed)
             current_speed = max_speed;
           if (current_speed < min_speed)
             current_speed = min_speed;
         }
-      } else {  // reference speed mode
-        input = measured_speed;
-        output = computePID(input, reference_speed, kp_spd, ki_spd, kd_spd);
-        current_speed -= output;
-        if (current_speed > max_speed)
-          current_speed = max_speed;
-        if (current_speed < min_speed)
-          current_speed = min_speed;
-      }
-      //driveSpeed();
+        //driveSpeed();
       }
       if (obj_distance <= 10) {
         if (same_object == false) {
@@ -155,10 +161,19 @@ void loop() {
     }
 
     updateState();
-    if (stop == false) {      if (state_left == LOW && tag3 && state_right == LOW) {
-        tag3 = false;
+    if (stop == false) {
+      if (state_left == LOW && tag3 && state_right == LOW) {  // Turn Right tag
+        prev_timeT3 = millis();
         fwdRight();
+        Serial.println("Turning right cause I was told");
       } else {
+        current_timeT3 = millis();
+        elapsed_timeT3 = current_timeT3 - prev_timeT3;
+        if (elapsed_timeT3 >= 500) {
+          prev_timeT3 = current_timeT3;
+          tag3 = false;
+          tag4 = true;
+        }
         if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
           fwdLeft();
         } else
@@ -169,10 +184,18 @@ void loop() {
         } else
           analogWrite(right_switch, current_speed);
       }
-      if (state_right == LOW && tag4 && state_left == LOW) {
-        tag4 = false;
+      if (state_right == LOW && tag4 && state_left == LOW) {  // Turn left Tag
+        prev_timeT4 = millis();
         fwdLeft();
+        Serial.println("Turning left cause I was told");
       } else {
+        current_timeT4 = millis();
+        elapsed_timeT4 = current_timeT4 - prev_timeT4;
+        if (elapsed_timeT4 >= 500) {
+          prev_timeT4 = current_timeT4;
+          tag3 = true;
+          tag4 = false;
+        }
         if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
           fwdLeft();
         } else
@@ -184,17 +207,17 @@ void loop() {
           analogWrite(right_switch, current_speed);
       }
 
-      distance();   //calculate distance every loop
-  } else {       // STOP BUTTON WAS PRESSED
-    measured_speed = 0;
-  }
-  unsigned int currT = millis();
-  t_elapsed = currT - t_start;
-  if (t_elapsed >= 1000) {  // code for sending data every 1 second
-    t_start = currT;
-    sendData();
-  }
-  checkCam();
+      distance();  //calculate distance every loop
+    } else {       // STOP BUTTON WAS PRESSED
+      measured_speed = 0;
+    }
+    unsigned int currT = millis();
+    t_elapsed = currT - t_start;
+    if (t_elapsed >= 1000) {  // code for sending data every 1 second
+      t_start = currT;
+      sendData();
+    }
+    checkCam();
   }
 }
 double computePID(double inp, double sPoint, double kp, double ki, double kd) {
@@ -277,12 +300,12 @@ void Stop() {  //Function to stop using PWM
   analogWrite(right_switch, 0);
 }
 void fwdLeft() {  //Function to turn left
-  analogWrite(left_switch, current_speed * 0.3);
+  analogWrite(left_switch, current_speed * 0);
   analogWrite(right_switch, current_speed * 1.3);
 }
 void fwdRight() {  //Funtion to turn right
   analogWrite(left_switch, current_speed * 1.3);
-  analogWrite(right_switch, current_speed * 0.3);
+  analogWrite(right_switch, current_speed * 0);
 }
 void fullSpeed() {  //Funtion to make buggy drive @ full speed
   analogWrite(left_switch, 200);
@@ -366,7 +389,7 @@ void checkCam() {
           client.write(log_string.c_str());
           break;
         case 3:  // right turn
-          tThreePro(); 
+          tThreePro();
           log_string = String("Right Turn Incoming!" + 'y');
           client.write('y');
           client.write(log_string.c_str());
