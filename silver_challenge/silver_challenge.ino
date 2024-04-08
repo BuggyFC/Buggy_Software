@@ -117,7 +117,8 @@ void loop() {
       // code for calculating speed every 500ms
       measured_speed = 10 * (trav_distance - prev_trav_distance) / elapsed_time;
       prev_trav_distance = trav_distance;
-      if (follow_mode && !tag1 && !tag2) {  // reference object mode
+      if (!tag1 && !tag2) {  // In order to prevent reference modes from activating at same time as speed tags
+      if (follow_mode) {  // reference object mode
         if (obj_distance > 10) {
           input = obj_distance;
           output = computePID(input, set_point, kp_obj, ki_obj, kd_obj);
@@ -137,6 +138,7 @@ void loop() {
           current_speed = min_speed;
       }
       //driveSpeed();
+      }
       if (obj_distance <= 10) {
         if (same_object == false) {
           client.write('o');  // GUI will display "Object Spotted!"
@@ -153,19 +155,36 @@ void loop() {
     }
 
     updateState();
-    if (stop == false) {
-      state_left = digitalRead(LEYE);
-      if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
-        fwdLeft();
-      } else
-        analogWrite(left_switch, current_speed);
-      state_right = digitalRead(REYE);
-      if (state_right == LOW) {  //Poll Right sensor to determine to whether to turn or not
+    if (stop == false) {      if (state_left == LOW && tag3 && state_right == LOW) {
+        tag3 = false;
         fwdRight();
-      } else
-        analogWrite(right_switch, current_speed);
-    }
-    distance();  //calculate distance every loop
+      } else {
+        if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
+          fwdLeft();
+        } else
+          analogWrite(left_switch, current_speed);
+
+        if (state_right == LOW) {  //Poll Right sensor to determine to whether to turn or not
+          fwdRight();
+        } else
+          analogWrite(right_switch, current_speed);
+      }
+      if (state_right == LOW && tag4 && state_left == LOW) {
+        tag4 = false;
+        fwdLeft();
+      } else {
+        if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
+          fwdLeft();
+        } else
+          analogWrite(left_switch, current_speed);
+
+        if (state_right == LOW) {  //Poll Right sensor to determine to whether to turn or not
+          fwdRight();
+        } else
+          analogWrite(right_switch, current_speed);
+      }
+
+      distance();   //calculate distance every loop
   } else {       // STOP BUTTON WAS PRESSED
     measured_speed = 0;
   }
@@ -292,19 +311,31 @@ void rUpdate() {
   right_count = right_count + 1;
 }
 void tOnePro() {
-  current_speed = 170;
+  current_speed = 100;
   driveSpeed();
   tag1 = true;
+  tag2 = false;
+  tag3 = false;
+  tag4 = false;
 }
 void tTwoPro() {
   current_speed = 200;
   driveSpeed();
+  tag1 = false;
   tag2 = true;
+  tag3 = false;
+  tag4 = false;
 }
 void tThreePro() {
+  tag1 = false;
+  tag2 = false;
   tag3 = true;
+  tag4 = false;
 }
 void tFourPro() {
+  tag1 = false;
+  tag2 = false;
+  tag2 = false;
   tag4 = true;
 }
 void checkCam() {
