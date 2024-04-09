@@ -40,7 +40,7 @@ unsigned long elapsed_time = 0;
 unsigned long t_elapsed = 0;
 bool stop = false;               //true = stop false = go
 bool speed = true;               //true = full false = half
-bool override = false;           //Override is used to determine void loop will be utilised or not
+bool override = true;           //Override is used to determine void loop will be utilised or not
 bool same_object = false;        //Used to determine whether there is a new obstruction or not
 const int left_wheel = 2;        //Left wheel encoder pin
 const int right_wheel = 3;       //Right wheel encoder pin
@@ -63,8 +63,8 @@ double last_error;
 double input, output, set_point;
 double cum_error, rate_error;
 int max_speed = 200;
-int min_speed = 130;  // determine minimum driving speed of buggy
-int current_speed = 130;
+int min_speed = 150;  // determine minimum driving speed of buggy
+int current_speed = 150;
 double reference_speed = 10;
 double measured_speed = 0.0;  // on board measured speed
 bool follow_mode = true;      // choose between buggy following object or buggy travelling at reference speed given from GUI
@@ -79,6 +79,7 @@ unsigned long elapsed_timeT3 = 0;
 unsigned long prev_timeT4 = 0;
 unsigned long current_timeT4 = 0;
 unsigned long elapsed_timeT4 = 0;
+int loop_counter_d = 0;
 
 void setup() {
   set_point = 15;  // distance for reference object, 15cm
@@ -195,6 +196,7 @@ void loop() {
           prev_timeT4 = current_timeT4;
           tag3 = true;
           tag4 = false;
+          client.write('k'); 
         }
         if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
           fwdLeft();
@@ -213,9 +215,10 @@ void loop() {
     }
     unsigned int currT = millis();
     t_elapsed = currT - t_start;
-    if (t_elapsed >= 1000) {  // code for sending data every 1 second
+    if (t_elapsed >= 1000) {  // code for sending data every .5 second
       t_start = currT;
       sendData();
+      Serial.println(measured_speed);
     }
     checkCam();
   }
@@ -252,12 +255,12 @@ void checkClient() {  // connects client and reads from client
       String speed_str = client.readStringUntil('v');
       reference_speed = speed_str.toFloat();
     }
-    if (c == '1') {  // start was pressed
+    if (c == 'w') {  // start was pressed
       override = false;
       driveSpeed();
       start_time = millis();
     }
-    if (c == '0') {  // stop was presssed
+    if (c == 's') {  // stop was presssed
       override = true;
       Stop();
     }
@@ -283,6 +286,7 @@ void sendData() {
   String trav_str = String(trav_distance) + "t";  // code for sending distance travelled to GUI
   client.write('t');
   client.write(trav_str.c_str());
+  
 }
 void distance() {  //calculate distance using average count of both wheels
   avg_count = 0.5 * (left_count + right_count);
@@ -335,7 +339,9 @@ void rUpdate() {
   right_count = right_count + 1;
 }
 void tOnePro() {
-  current_speed = 100;
+  current_speed -= 5;
+  if(current_speed < min_speed)
+  current_speed = min_speed;
   driveSpeed();
   tag1 = true;
   tag2 = false;
@@ -343,7 +349,9 @@ void tOnePro() {
   tag4 = false;
 }
 void tTwoPro() {
-  current_speed = 200;
+  current_speed += 5;
+  if(current_speed > max_speed)
+  current_speed = max_speed;
   driveSpeed();
   tag1 = false;
   tag2 = true;
@@ -366,9 +374,18 @@ void checkCam() {
   // First, check that we have the huskylens connected...
   if (!huskylens.request()) Serial.println("Fail to request data from HUSKYLENS, recheck the connection!");
   // then check that it's been trained on something...
-  else if (!huskylens.isLearned()) Serial.println("Nothing learned, press learn button on HUSKYLENS to learn one!");
+  // else if (!huskylens.isLearned()) Serial.println("Nothing learned, press learn button on HUSKYLENS to learn one!");
   // Then check whether there are any blocks visible at this exact moment...
-  else if (!huskylens.available()) Serial.println("No block or arrow appears on the screen!");
+   else if (!huskylens.available()) {
+    if(tag1){
+      tag1 = false;
+      current_speed = min_speed;
+    }
+    if(tag2){
+      tag2 = false;
+      current_speed = max_speed;
+    }
+   }
   else {
     // OK, we have some blocks to process. available() will return the number of blocks to work through.
     // fetch them using read(), one at a time, until there are none left. Each block gets given to
@@ -378,27 +395,19 @@ void checkCam() {
       switch (result.ID) {
         case 1:  // slow speed
           tOnePro();
-          log_string = String("Going Slow" + 'y');
-          client.write('y');
-          client.write(log_string.c_str());
+          client.write('m');
           break;
         case 2:  // max speed
           tTwoPro();
-          log_string = String("Going Fast" + 'y');
-          client.write('y');
-          client.write(log_string.c_str());
+          client.write('n');
           break;
         case 3:  // right turn
           tThreePro();
-          log_string = String("Right Turn Incoming!" + 'y');
-          client.write('y');
-          client.write(log_string.c_str());
+          client.write('p');
           break;
         case 4:  // left turn
           tFourPro();
-          log_string = String("Left Turn Incoming!" + 'y');
-          client.write('y');
-          client.write(log_string.c_str());
+          client.write('q');
           break;
           // code block
       }
