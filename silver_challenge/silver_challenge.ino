@@ -1,24 +1,16 @@
-/****************************************************************************
-BRONZE CHALLENGE                                                     COMPLETE
-SILVER CHALLENGE                                                     COMPLETE
-  GOLD CHALLENGE
-*****************************************************************************/
 #include "HUSKYLENS.h"
 #include "SoftwareSerial.h"
 // Global variable containing the huskylens control object.
 // This gets initialised in setup() so that it communicates over I2C
 HUSKYLENS huskylens;
 // THis program uses I2C for communications, so
-// connect HuskyLens green line to SDA and blue line to SCL
-// (and supply power, obviously)
-
+// connect HuskyLens green line to SDA and blue line to SCL (and supply power, obviously)
 #include <WiFiS3.h>
 WiFiServer server(5200);  // creates server on port 5200
 WiFiClient client;        // creates client object for GUI
 char ssid[] = "GroupZ2";
 char pass[] = "GroupZ2R2Z2";
 //High=dark Low=light
-
 const float pi = 3.1415;
 const int LEYE = 0;                  //The Pin that reads digital signals from Left eye IR sensor(1)
 const int REYE = 13;                 //(2)
@@ -40,7 +32,7 @@ unsigned long elapsed_time = 0;
 unsigned long t_elapsed = 0;
 bool stop = false;               //true = stop false = go
 bool speed = true;               //true = full false = half
-bool override = true;           //Override is used to determine void loop will be utilised or not
+bool override = true;            //Override is used to determine void loop will be utilised or not
 bool same_object = false;        //Used to determine whether there is a new obstruction or not
 const int left_wheel = 2;        //Left wheel encoder pin
 const int right_wheel = 3;       //Right wheel encoder pin
@@ -73,13 +65,13 @@ bool tag2 = false;
 bool tag3 = false;
 bool tag4 = false;
 String log_string;
+String speed_str;
 unsigned long prev_timeT3 = 0;
 unsigned long current_timeT3 = 0;
 unsigned long elapsed_timeT3 = 0;
 unsigned long prev_timeT4 = 0;
 unsigned long current_timeT4 = 0;
 unsigned long elapsed_timeT4 = 0;
-int loop_counter_d = 0;
 
 void setup() {
   set_point = 15;  // distance for reference object, 15cm
@@ -144,7 +136,6 @@ void loop() {
           if (current_speed < min_speed)
             current_speed = min_speed;
         }
-        //driveSpeed();
       }
       if (obj_distance <= 10) {
         if (same_object == false) {
@@ -196,7 +187,7 @@ void loop() {
           prev_timeT4 = current_timeT4;
           tag3 = true;
           tag4 = false;
-          client.write('k'); 
+          client.write('k');
         }
         if (state_left == LOW) {  //Poll Left sensor to determine to whether to turn or not
           fwdLeft();
@@ -251,28 +242,30 @@ void checkClient() {  // connects client and reads from client
   if (client.available()) {
     char c = client.read();
     Serial.println(c);
-    if (c == 'v') {
-      String speed_str = client.readStringUntil('v');
-      reference_speed = speed_str.toFloat();
-    }
-    if (c == 'w') {  // start was pressed
-      override = false;
-      driveSpeed();
-      start_time = millis();
-    }
-    if (c == 's') {  // stop was presssed
-      override = true;
-      Stop();
-    }
-    if (c == 'f') {  // "Reference Object" was selected
-      follow_mode = true;
-      current_speed = 130;
-    }
-    if (c == 'r') {  // "Reference Speed" was selected
-      follow_mode = false;
-    }
-    if (c == 'l') {
-      trav_distance = 0;
+    switch (c) {
+      case 'v': // prepare to read in reference speed string
+        speed_str = client.readStringUntil('v');
+        reference_speed = speed_str.toFloat();
+      break;
+      case 'w': // start was pressed
+        override = false;
+        driveSpeed();
+        start_time = millis();
+      break;
+      case 's':  // stop was presssed
+        override = true;
+        Stop();
+      break;
+      case 'f':  // "Reference Object" was selected
+        follow_mode = true;
+        current_speed = 130;
+      break;
+      case 'r':  // "Reference Speed" was selected
+        follow_mode = false;
+      break;
+      case 'l': // GUI was reset, reset the distance travelled
+        trav_distance = 0;
+      break;
     }
   }
 }
@@ -394,23 +387,23 @@ void checkCam() {
       HUSKYLENSResult result = huskylens.read();
       switch (result.ID) {
         case 1:  // slow speed
-          tOnePro();
-          client.write('m');
-          break;
-        case 2:  // max speed
-          tTwoPro();
-          client.write('n');
-          break;
-        case 3:  // right turn
-          tThreePro();
-          client.write('p');
-          break;
-        case 4:  // left turn
-          tFourPro();
-          client.write('q');
-          break;
-          // code block
-      }
+        tOnePro();
+        client.write('m');
+        break;
+      case 2:  // max speed
+        tTwoPro();
+        client.write('n');
+        break;
+      case 3:  // right turn
+        tThreePro();
+        client.write('p');
+        break;
+      case 4:  // left turn
+        tFourPro();
+        client.write('q');
+        break;
+        // code block
     }
   }
+}
 }
