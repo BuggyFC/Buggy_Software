@@ -113,7 +113,7 @@ void loop() {
     if (elapsed_time >= 300) {  // code for polling US sensor every 300ms
       start_time = curr_time;
       checkObject();
-      // code for calculating speed every 500ms
+      // code for calculating speed every 300ms
       measured_speed = 10 * (trav_distance - prev_trav_distance) / elapsed_time;
       prev_trav_distance = trav_distance;
       if (!tag1 && !tag2) {  // In order to prevent reference modes from activating at same time as speed tags
@@ -277,7 +277,6 @@ void sendData() {
   String trav_str = String(trav_distance) + "t";  // code for sending distance travelled to GUI
   client.write('t');
   client.write(trav_str.c_str());
-  
 }
 void distance() {  //calculate distance using average count of both wheels
   avg_count = 0.5 * (left_count + right_count);
@@ -290,7 +289,6 @@ void fwdDrive() {  //Function to drive forward
   digitalWrite(right_motor_logic_2, HIGH);
 }
 void Stop() {  //Function to stop using PWM
-  current_speed = 110;
   analogWrite(left_switch, 0);
   analogWrite(right_switch, 0);
 }
