@@ -122,7 +122,7 @@ void loop() {
             input = obj_distance;
             output = computePID(input, set_point, kp_obj, ki_obj, kd_obj);
             current_speed -= output;
-            if (current_speed > max_speed)
+            if (current_speed > max_speed) // constraining current_speed to max_speed, min_speed
               current_speed = max_speed;
             if (current_speed < min_speed)
               current_speed = min_speed;
@@ -131,7 +131,7 @@ void loop() {
           input = measured_speed;
           output = computePID(input, reference_speed, kp_spd, ki_spd, kd_spd);
           current_speed -= output;
-          if (current_speed > max_speed)
+          if (current_speed > max_speed)// constraining current_speed to max_speed, min_speed
             current_speed = max_speed;
           if (current_speed < min_speed)
             current_speed = min_speed;
@@ -139,14 +139,12 @@ void loop() {
       }
       if (obj_distance <= 10) {
         if (same_object == false) {
-          client.write('o');  // GUI will display "Object Spotted!"
           same_object = true;
         }
         Stop();
         stop = true;
       } else {
         same_object = false;
-        client.write('z');  // GUI will stop displaying "Object Spotted!"
         driveSpeed();
         stop = false;
       }
