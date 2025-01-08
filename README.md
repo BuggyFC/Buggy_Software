@@ -36,11 +36,11 @@ The buggy still traverses the line track from the Bronze challenge. However, its
 
 **Gold Challenge**
 
-**Challenge Description **
+**Challenge Description**
 
 Your task is to design an autonomous buggy capable of navigating a more complex line-following course. Your buggy will have to navigate junctions and change behaviour based on tags placed on the course. 
 
-**Tags **
+**Tags**
 
 Teams must train their autonomous buggies to recognize and interpret four different April tags. These tags should be readable by the HuskyLens vision sensor. The tags will encode instructions to the buggies during the challenge. Each team must bring their chosen tags to the challenge demo. The positioning of the tags on the course will be done by the challenge assessor. The tags should be used to generate the behaviours below as the buggy drives towards and recognises them. 
  
